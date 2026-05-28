@@ -1,0 +1,99 @@
+You are an embedded systems engineer writing firmware for an ESP32-C3 Super Mini. Write a complete Arduino/PlatformIO program that reads medical sensors and sends the data to a remote server.
+
+═══════════════════════════════════════
+HARDWARE
+═══════════════════════════════════════
+- Board: ESP32-C3 Super Mini
+- Sensors:
+  - MAX30205 (I2C) — body temperature sensor
+  - MAX30102 (I2C) — heart rate + SpO₂ (pulse oximeter)
+  - LSM6DS3 (I2C) — accelerometer/gyroscope (optional, use for fall detection or ignore)
+- No glucose sensor — simulate glucose with a random value between 70-180 mg/dL
+- No blood pressure sensor — simulate systolic (90-140) and diastolic (60-90) with random drift
+- No real battery sensor — simulate battery percentage starting at 100 and slowly decrementing
+
+═══════════════════════════════════════
+SERVER API
+═══════════════════════════════════════
+Base URL: https://edna-chasmic-unreasonably.ngrok-free.dev/api
+
+Step 1 — Login to get patient ID:
+  POST /auth/login
+  Headers: Content-Type: application/json
+  Body:
+    {
+      "email": "ouledmeriemfarouk1@gmail.com",
+      "password": "artoriastm"
+    }
+  Response:
+    {
+      "user": {
+        "patient": { "id": "cmpk5usw5000614eqw1zdlr6g" },
+        ...
+      },
+      "accessToken": "..."
+    }
+  → Extract patient.id from the response. This is your patientId.
+
+Step 2 — Send vitals every 1 second:
+  POST /vitals/ingest
+  Headers:
+    Content-Type: application/json
+    x-api-key: esp32_shared_secret_key_here
+  Body:
+    {
+      "patientId": "<patient id from login>",
+      "glucose": 126,
+      "heartRate": 72,
+      "temperature": 36.6,
+      "oxygen": 98,
+      "systolic": 120,
+      "diastolic": 80,
+      "batteryPct": 85,
+      "firmwareVer": "v1.0.0",
+      "recordedAt": "2026-05-24T20:00:00.000Z"
+    }
+  → All numeric fields except patientId are optional — only send what you have.
+  → recordedAt must be ISO 8601 UTC timestamp string.
+  → Response HTTP 201 means success.
+
+═══════════════════════════════════════
+REQUIREMENTS
+═══════════════════════════════════════
+1. Connect to WiFi (hardcode SSID and password as #defines at the top of the file).
+2. Initialize all sensors over I2C (check MAX30205, MAX30102, LSM6DS3 addresses).
+3. Login to the server on boot, store the patientId.
+4. Enter a loop that runs every 1 second:
+   a. Read temperature from MAX30205 (in °C).
+   b. Read heart rate and SpO₂ from MAX30102.
+   c. Simulate glucose with realistic drift (start at ~120, drift ±5 per reading, clamp 60-250).
+   d. Simulate systolic and diastolic with realistic drift.
+   e. Simulate battery (start at 100, decrement ~0.01 per cycle).
+   f. Build JSON payload with patientId + all vitals.
+   g. POST to /vitals/ingest with x-api-key header.
+   h. Log the HTTP status and response to Serial.
+5. Use deep sleep between readings (optional) or just use delay(1000).
+6. Handle WiFi reconnection and HTTP errors gracefully.
+
+═══════════════════════════════════════
+I2C ADDRESSES (verify with your wiring)
+═══════════════════════════════════════
+- MAX30205: 0x48 (7-bit)
+- MAX30102: 0x57 (7-bit)
+- LSM6DS3: 0x6A or 0x6B depending on SA0 pin
+
+═══════════════════════════════════════
+LIBRARIES TO USE (Arduino/PlatformIO)
+═══════════════════════════════════════
+- WiFi.h (built-in ESP32)
+- HTTPClient.h (built-in ESP32)
+- ArduinoJson.h (by Benoit Blanchon) — for JSON parsing/building
+- Wire.h (built-in) — for I2C
+- MAX30105 (SparkFun) — works with MAX30102, use for HR/SpO₂
+- MAX30205 (by ProtoCentral or similar) — body temperature
+- LSM6DS3 (by SparkFun or STM) — accelerometer
+
+═══════════════════════════════════════
+OUTPUT
+═══════════════════════════════════════
+One complete .ino or main.cpp file. All config (#defines for WiFi, API key, email, password, server URL) at the top of the file. Code heavily commented in English. Ready to flash to ESP32-C3 Super Mini.

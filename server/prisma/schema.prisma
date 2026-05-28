@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      String
+  firstName String
+  lastName  String
+  phone     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient       Patient?
+  doctor        Doctor?
+  refreshTokens RefreshToken[]
+}
+
+model Patient {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  dob       String
+  gender    String
+  weight    Float?
+  height    Float?
+  condition String
+  notes     String   @default("")
+
+  device    Device?
+  vitals    Vital[]
+  alerts    Alert[]
+
+  assignedDoctors DoctorPatient[]
+}
+
+model Doctor {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  specialty String
+  license   String   @unique
+  hospital  String
+  city      String?
+
+  patients  DoctorPatient[]
+}
+
+model DoctorPatient {
+  doctorId   String
+  patientId  String
+  doctor     Doctor  @relation(fields: [doctorId], references: [id])
+  patient    Patient @relation(fields: [patientId], references: [id])
+  assignedAt DateTime @default(now())
+
+  @@id([doctorId, patientId])
+}
+
+model Device {
+  id          String   @id @default(cuid())
+  patientId   String   @unique
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  patchId     String   @unique
+  macAddress  String?
+  firmwareVer String?
+  lastSeen    DateTime?
+  connected   Boolean  @default(false)
+  batteryPct  Int?
+
+  vitals      Vital[]
+}
+
+model Vital {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  deviceId    String?
+  device      Device?  @relation(fields: [deviceId], references: [id])
+
+  glucose     Float?
+  heartRate   Float?
+  temperature Float?
+  oxygen      Float?
+  systolic    Int?
+  diastolic   Int?
+  fallDetected Boolean  @default(false)
+
+  recordedAt  DateTime @default(now())
+
+  @@index([patientId, recordedAt])
+}
+
+model Alert {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  type      String
+  message   String
+  metric    String?
+  value     Float?
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([patientId, createdAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
