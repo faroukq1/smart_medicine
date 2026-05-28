@@ -18,7 +18,7 @@ import { DEMO_PATIENTS } from "../constants/demoData";
 import HLogo from "../components/HLogo";
 import VCard from "../components/VCard";
 import Dot from "../components/Dot";
-import FallAlertModal from "../components/FallAlertModal";
+
 import { colors } from "../constants/colors";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
@@ -60,9 +60,6 @@ export default function DoctorDashboardScreen() {
 
   const [selectedLatest, setSelectedLatest] = useState<any>(null);
   const [fetching, setFetching] = useState(true);
-  const [showFallModal, setShowFallModal] = useState(false);
-  const lastFallIdRef = useRef<string | null>(null);
-  const fallDismissedRef = useRef<Set<string>>(new Set());
   const [alertFilter, setAlertFilter] = useState<string>("all");
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -99,21 +96,12 @@ export default function DoctorDashboardScreen() {
 
   const fetchPatientOverview = useCallback(async (patientId: string) => {
     try {
-      const [vitalsRes, latest, fallAlertsRes] = await Promise.all([
+      const [vitalsRes, latest] = await Promise.all([
         api.getVitals(patientId, undefined, 10),
         api.getLatestVitals(patientId),
-        api.getPatientAlerts(patientId, undefined, 1, 'fall'),
       ]);
       if (vitalsRes?.data?.length) setSelectedVitals(vitalsRes.data);
       if (latest) setSelectedLatest(latest);
-
-      if (!fallDismissedRef.current.has(patientId)) {
-        const latestFall = fallAlertsRes?.data?.[0];
-        if (latestFall && !latestFall.resolved && latestFall.id !== lastFallIdRef.current) {
-          lastFallIdRef.current = latestFall.id;
-          setShowFallModal(true);
-        }
-      }
     } catch {}
   }, []);
 
@@ -200,19 +188,6 @@ export default function DoctorDashboardScreen() {
   const handleLogout = async () => {
     await logout();
     navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-  };
-
-  const handleDismissFall = async () => {
-    setShowFallModal(false);
-    if (selectedPatient?.id) {
-      fallDismissedRef.current.add(selectedPatient.id);
-    }
-    const fallAlert = selectedAlerts.find(
-      (a: any) => a.metric === "fall" && !a.resolved,
-    );
-    if (fallAlert) {
-      try { await api.resolveAlert(fallAlert.id); } catch {}
-    }
   };
 
   const useApi = apiPatients.length > 0;
@@ -603,7 +578,6 @@ export default function DoctorDashboardScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
-      <FallAlertModal visible={showFallModal} onDismiss={handleDismissFall} patientName={selectedData?.name} />
     </SafeAreaView>
   );
 }
