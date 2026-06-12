@@ -83,17 +83,36 @@ async function login() {
   }
 }
 
-async function connectPatch() {
+async function registerDevice() {
   try {
-    const devRes = await fetch(`${BASE_URL}/api/devices/patient/${patientId}`, {
-      headers: { Authorization: `Bearer ${patientToken}` },
+    const res = await fetch(`${BASE_URL}/api/devices`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${patientToken}`,
+      },
+      body: JSON.stringify({
+        patientId,
+        patchId: `ESP32-SIM-${patientId}`,
+        macAddress: "AA:BB:CC:DD:EE:FF",
+      }),
     });
-    const device = await devRes.json();
-    if (!device?.id) {
-      console.warn("[Patch] No device registered for this patient");
-      return;
-    }
+    const device = await res.json();
     deviceId = device.id;
+    console.log(`[Patch] Device registered (id: ${deviceId})`);
+    return true;
+  } catch (err) {
+    console.error(`[Patch] registerDevice error: ${err.message}`);
+    return false;
+  }
+}
+
+async function connectPatch() {
+  if (!deviceId) {
+    console.warn("[Patch] No deviceId — cannot connect");
+    return;
+  }
+  try {
     const connRes = await fetch(`${BASE_URL}/api/devices/${deviceId}/connect`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${patientToken}` },
@@ -106,6 +125,19 @@ async function connectPatch() {
   } catch (err) {
     console.error(`[Patch] connectPatch error: ${err.message}`);
   }
+}
+
+async function disconnectPatch() {
+  if (!deviceId) return;
+  try {
+    const res = await fetch(`${BASE_URL}/api/devices/${deviceId}/disconnect`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${patientToken}` },
+    });
+    if (res.ok) {
+      console.log("[Patch] Marked disconnected");
+    }
+  } catch {}
 }
 
 async function fetchAlerts() {
@@ -175,7 +207,32 @@ console.log("══════════════════════�
     console.error("[FATAL] Cannot continue without patient login");
     process.exit(1);
   }
+
+  const devRes = await fetch(`${BASE_URL}/api/devices/patient/${patientId}`, {
+    headers: { Authorization: `Bearer ${patientToken}` },
+  });
+  const existing = await devRes.json();
+  if (existing?.id) {
+    deviceId = existing.id;
+    console.log(`[Patch] Found existing device (id: ${deviceId})`);
+  }
+
+  if (!deviceId) {
+    const registered = await registerDevice();
+    if (!registered) {
+      console.error("[FATAL] Cannot continue without device registration");
+      process.exit(1);
+    }
+  }
+
   await connectPatch();
+
+  process.on("SIGINT", async () => {
+    console.log("\n[Patch] Shutting down...");
+    await disconnectPatch();
+    process.exit(0);
+  });
+
   console.log("───────────────────────────────────────────\n");
   send();
   setInterval(send, 1000);

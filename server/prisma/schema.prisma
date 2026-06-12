@@ -95,6 +95,7 @@ model Vital {
   fallDetected Boolean  @default(false)
 
   recordedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
 
   @@index([patientId, recordedAt])
 }

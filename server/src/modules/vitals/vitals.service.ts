@@ -140,6 +140,6 @@ export async function getPatientVitals(patientId: string, cursor?: string, limit
 export async function getLatestVital(patientId: string) {
   return prisma.vital.findFirst({
     where: { patientId },
-    orderBy: { recordedAt: 'desc' },
+    orderBy: { createdAt: 'desc' },
   });
 }

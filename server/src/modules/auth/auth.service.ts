@@ -69,6 +69,13 @@ export async function registerUser(data: RegisterInput) {
     },
   });
 
+  if (user.role === 'patient' && user.patient) {
+    await prisma.device.updateMany({
+      where: { patientId: user.patient.id },
+      data: { connected: true, lastSeen: new Date() },
+    });
+  }
+
   const { password: _, ...safeUser } = user;
   return { user: safeUser, accessToken, refreshToken };
 }
