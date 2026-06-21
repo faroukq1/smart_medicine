@@ -3,8 +3,8 @@
 const BASE_URL = "http://localhost:3000";
 const API_KEY = "esp32_shared_secret_key_here";
 const FIRMWARE_VER = "v1.0.0";
-const PATIENT_EMAIL = "ouledmeriemfarouk1@gmail.com";
-const PATIENT_PASS = "artoriastm";
+const PATIENT_EMAIL = "random@gmail.com";
+const PATIENT_PASS = "ran123456";
 
 // Base vitals — these drift randomly each cycle
 let state = {

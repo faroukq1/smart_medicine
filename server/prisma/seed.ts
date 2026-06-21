@@ -60,14 +60,14 @@ async function main() {
   });
 
   const simulatorPatient = await prisma.user.upsert({
-    where: { email: 'ouledmeriemfarouk1@gmail.com' },
+    where: { email: 'random.user@gmail.com' },
     update: {},
     create: {
-      email: 'ouledmeriemfarouk1@gmail.com',
+      email: 'random.user@gmail.com',
       password: hashedSimulator,
       role: 'patient',
-      firstName: 'Farouk',
-      lastName: 'Ouledmeriem',
+      firstName: 'random',
+      lastName: 'random',
       phone: '+213 555 000 002',
       patient: {
         create: {

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { API_BASE } from './config';
 
 const ACCESS_KEY = 'medpatch_access_token';

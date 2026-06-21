@@ -28,16 +28,21 @@ export default function LoginScreen() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    setLoading(true); setLoginError('');
+    setLoading(true); 
+    setLoginError('');
     try {
       const user = await login(data.email.trim(), data.password);
+      console.log(user);
       if (user.role === 'patient') navigation.replace('PatientDashboard', { user });
       else navigation.replace('DoctorDashboard', { user });
     } catch (e: any) {
+      console.log(e)
       const msg = e.message || '';
       if (msg.includes('Invalid') || msg.includes('invalid')) setLoginError('Email ou mot de passe incorrect.');
       else setLoginError('Erreur de connexion. Réessayez.');
-    } finally { setLoading(false); }
+    } finally { 
+      setLoading(false);
+    }
   };
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
