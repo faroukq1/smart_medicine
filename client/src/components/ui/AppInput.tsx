@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Controller, Control, FieldValues, Path } from 'react-hook-form';
-import { colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface AppInputProps<T extends FieldValues> {
   label: string;
@@ -24,7 +24,9 @@ export default function AppInput<T extends FieldValues>({
   placeholder,
   autoCapitalize = 'none',
 }: AppInputProps<T>) {
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     <View style={styles.wrapper}>
@@ -36,8 +38,8 @@ export default function AppInput<T extends FieldValues>({
           <TextInput
             style={[
               styles.input,
-              focused && styles.inputFocused,
-              error ? styles.inputError : null,
+              focused && { borderColor: colors.primary },
+              error ? { borderColor: colors.danger } : null,
             ]}
             value={value}
             onChangeText={onChange}
@@ -51,12 +53,12 @@ export default function AppInput<T extends FieldValues>({
           />
         )}
       />
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   wrapper: { marginBottom: 16 },
   label: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.textMuted, marginBottom: 6 },
   input: {
@@ -64,7 +66,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
     borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12,
   },
-  inputFocused: { borderColor: colors.primary },
-  inputError: { borderColor: colors.danger },
-  errorText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.danger, marginTop: 4 },
+  errorText: { fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 4 },
 });

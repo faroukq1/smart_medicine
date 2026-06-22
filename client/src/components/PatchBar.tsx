@@ -1,12 +1,16 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Dot from './Dot';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface PatchBarProps {
   connected: boolean;
 }
 
 export default function PatchBar({ connected }: PatchBarProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={styles.bar}>
       <Dot on={connected} size={8} />
@@ -17,7 +21,7 @@ export default function PatchBar({ connected }: PatchBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -5,7 +5,7 @@ import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import PatientDashboardScreen from '../screens/PatientDashboardScreen';
 import DoctorDashboardScreen from '../screens/DoctorDashboardScreen';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 export type RootStackParamList = {
   Loading: undefined;
@@ -18,6 +18,7 @@ export type RootStackParamList = {
 const Stack = createStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const { colors } = useTheme();
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { backgroundColor: colors.bg } }}>

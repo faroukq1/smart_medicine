@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView,
   StyleSheet, Text, View,
@@ -8,11 +8,11 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthContext } from '../api/AuthProvider';
+import { useTheme } from '../contexts/ThemeContext';
 import { loginSchema, LoginFormData } from '../schemas/authSchemas';
 import AppInput from '../components/ui/AppInput';
 import AppButton from '../components/ui/AppButton';
 import Logo from '../components/Logo';
-import { colors } from '../constants/colors';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = StackNavigationProp<RootStackParamList, 'Login'>;
@@ -20,12 +20,15 @@ type Nav = StackNavigationProp<RootStackParamList, 'Login'>;
 export default function LoginScreen() {
   const navigation = useNavigation<Nav>();
   const { login } = useAuthContext();
+  const { colors } = useTheme();
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
   const { control, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const onSubmit = async (data: LoginFormData) => {
     setLoading(true); 
@@ -75,7 +78,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },

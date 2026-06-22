@@ -3,8 +3,9 @@
 const BASE_URL = "http://localhost:3000";
 const API_KEY = "esp32_shared_secret_key_here";
 const FIRMWARE_VER = "v1.0.0";
-const PATIENT_EMAIL = "random@gmail.com";
-const PATIENT_PASS = "ran123456";
+<<<<<<< HEAD
+const PATIENT_EMAIL = "seraouialaeddine@gmail.com";
+const PATIENT_PASS = "ala123456";
 
 // Base vitals — these drift randomly each cycle
 let state = {
@@ -83,63 +84,6 @@ async function login() {
   }
 }
 
-async function registerDevice() {
-  try {
-    const res = await fetch(`${BASE_URL}/api/devices`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${patientToken}`,
-      },
-      body: JSON.stringify({
-        patientId,
-        patchId: `ESP32-SIM-${patientId}`,
-        macAddress: "AA:BB:CC:DD:EE:FF",
-      }),
-    });
-    const device = await res.json();
-    deviceId = device.id;
-    console.log(`[Patch] Device registered (id: ${deviceId})`);
-    return true;
-  } catch (err) {
-    console.error(`[Patch] registerDevice error: ${err.message}`);
-    return false;
-  }
-}
-
-async function connectPatch() {
-  if (!deviceId) {
-    console.warn("[Patch] No deviceId — cannot connect");
-    return;
-  }
-  try {
-    const connRes = await fetch(`${BASE_URL}/api/devices/${deviceId}/connect`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${patientToken}` },
-    });
-    if (connRes.ok) {
-      console.log(`[Patch] Marked connected (device: ${deviceId})`);
-    } else {
-      console.warn(`[Patch] Connect failed: HTTP ${connRes.status}`);
-    }
-  } catch (err) {
-    console.error(`[Patch] connectPatch error: ${err.message}`);
-  }
-}
-
-async function disconnectPatch() {
-  if (!deviceId) return;
-  try {
-    const res = await fetch(`${BASE_URL}/api/devices/${deviceId}/disconnect`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${patientToken}` },
-    });
-    if (res.ok) {
-      console.log("[Patch] Marked disconnected");
-    }
-  } catch {}
-}
-
 async function fetchAlerts() {
   if (!patientToken || !patientId) return "N/A";
   try {
@@ -154,6 +98,52 @@ async function fetchAlerts() {
     return unresolved.map((a) => `⚠️  ${a.message}`).join(" | ");
   } catch {
     return "N/A";
+  }
+}
+
+async function registerDevice() {
+  try {
+    const res = await fetch(`${BASE_URL}/api/devices`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${patientToken}`,
+      },
+      body: JSON.stringify({ patientId, firmwareVer: FIRMWARE_VER }),
+    });
+    const data = await res.json();
+    deviceId = data.id || data.device?.id;
+    console.log(`[Patch] Registered new device (id: ${deviceId})`);
+    return !!deviceId;
+  } catch (err) {
+    console.error(`[Patch] Register failed: ${err.message}`);
+    return false;
+  }
+}
+
+async function connectPatch() {
+  if (!deviceId) return;
+  try {
+    await fetch(`${BASE_URL}/api/devices/${deviceId}/connect`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${patientToken}` },
+    });
+    console.log("[Patch] Connected ✓");
+  } catch (err) {
+    console.error(`[Patch] Connect failed: ${err.message}`);
+  }
+}
+
+async function disconnectPatch() {
+  if (!deviceId) return;
+  try {
+    await fetch(`${BASE_URL}/api/devices/${deviceId}/disconnect`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${patientToken}` },
+    });
+    console.log("[Patch] Disconnected");
+  } catch (err) {
+    console.error(`[Patch] Disconnect failed: ${err.message}`);
   }
 }
 

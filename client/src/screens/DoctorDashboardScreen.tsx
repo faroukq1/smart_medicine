@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -18,8 +18,7 @@ import { DEMO_PATIENTS } from "../constants/demoData";
 import HLogo from "../components/HLogo";
 import VCard from "../components/VCard";
 import Dot from "../components/Dot";
-
-import { colors } from "../constants/colors";
+import { useTheme } from "../contexts/ThemeContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = StackNavigationProp<RootStackParamList, "DoctorDashboard">;
@@ -39,6 +38,7 @@ export default function DoctorDashboardScreen() {
   const route = useRoute<Route>();
   const routeUser = route.params.user;
   const { user: authUser, logout } = useAuthContext();
+  const { colors } = useTheme();
   const user = routeUser || authUser;
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<PatientTab>("vitals");
@@ -62,6 +62,8 @@ export default function DoctorDashboardScreen() {
   const [fetching, setFetching] = useState(true);
   const [alertFilter, setAlertFilter] = useState<string>("all");
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -582,7 +584,7 @@ export default function DoctorDashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",

@@ -7,7 +7,6 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const hashedDefault = await bcrypt.hash('password123', 12);
-  const hashedSimulator = await bcrypt.hash('artoriastm', 12);
 
   const doctorUser = await prisma.user.upsert({
     where: { email: 'doctor@medpatch.io' },
@@ -59,38 +58,9 @@ async function main() {
     },
   });
 
-  const simulatorPatient = await prisma.user.upsert({
-    where: { email: 'random.user@gmail.com' },
-    update: {},
-    create: {
-      email: 'random.user@gmail.com',
-      password: hashedSimulator,
-      role: 'patient',
-      firstName: 'random',
-      lastName: 'random',
-      phone: '+213 555 000 002',
-      patient: {
-        create: {
-          dob: '1995-07-15',
-          gender: 'Homme',
-          condition: 'Suivi général',
-          weight: 78,
-          height: 180,
-          device: {
-            create: {
-              patchId: 'PATCH-A1B2C3-D4E5',
-              macAddress: 'AA:BB:CC:DD:EE:02',
-              connected: false,
-            },
-          },
-        },
-      },
-    },
-  });
 
   console.log('Seeded doctor:', doctorUser.email);
   console.log('Seeded patient:', patientUser.email);
-  console.log('Seeded simulator patient:', simulatorPatient.email);
 }
 
 main()

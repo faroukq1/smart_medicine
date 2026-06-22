@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Modal,
   StyleSheet,
@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { colors } from "../constants/colors";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface FallAlertModalProps {
   visible: boolean;
@@ -15,6 +15,9 @@ interface FallAlertModalProps {
 }
 
 export default function FallAlertModal({ visible, onDismiss, patientName }: FallAlertModalProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <Modal
       visible={visible}
@@ -24,20 +27,20 @@ export default function FallAlertModal({ visible, onDismiss, patientName }: Fall
       statusBarTranslucent
     >
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          <View style={styles.iconCircle}>
+        <View style={[styles.card, { borderColor: colors.danger }]}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,64,96,0.15)" }]}>
             <Text style={styles.icon}>⚠️</Text>
           </View>
-          <Text style={styles.title}>Chute détectée !</Text>
+          <Text style={[styles.title, { color: colors.danger }]}>Chute détectée !</Text>
           {patientName ? (
-            <Text style={styles.patientName}>{patientName}</Text>
+            <Text style={[styles.patientName, { color: colors.textBright }]}>{patientName}</Text>
           ) : null}
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textBright }]}>
             Une chute a été détectée par le patch médical. Veuillez vérifier
             l'état du patient immédiatement.
           </Text>
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, { backgroundColor: colors.danger }]}
             onPress={onDismiss}
             activeOpacity={0.7}
           >
@@ -49,7 +52,7 @@ export default function FallAlertModal({ visible, onDismiss, patientName }: Fall
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -61,7 +64,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: colors.danger,
     padding: 28,
     alignItems: "center",
     width: "100%",
@@ -71,7 +73,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255,64,96,0.15)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 20,
@@ -82,27 +83,23 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: "Exo2_800ExtraBold",
     fontSize: 22,
-    color: colors.danger,
     textAlign: "center",
     marginBottom: 12,
   },
   patientName: {
     fontFamily: "Exo2_800ExtraBold",
     fontSize: 18,
-    color: colors.textBright,
     textAlign: "center",
     marginBottom: 10,
   },
   subtitle: {
     fontFamily: "Inter_400Regular",
     fontSize: 14,
-    color: colors.textBright,
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 24,
   },
   button: {
-    backgroundColor: colors.danger,
     borderRadius: 10,
     paddingVertical: 14,
     paddingHorizontal: 28,

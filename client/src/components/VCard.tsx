@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Spark from './Spark';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface VCardProps {
   label: string; value: string | number; unit: string; icon: string;
@@ -8,9 +9,12 @@ interface VCardProps {
 }
 
 export default function VCard({ label, value, unit, icon, color = '#00e5c4', spark, warn }: VCardProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   return (
-    <View style={[styles.card, warn && styles.cardWarn]}>
-      {warn && <View style={styles.warnBar} />}
+    <View style={[styles.card, warn && { borderColor: colors.danger }]}>
+      {warn && <View style={[styles.warnBar, { backgroundColor: colors.danger }]} />}
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.icon}>{icon}</Text>
@@ -26,10 +30,9 @@ export default function VCard({ label, value, unit, icon, color = '#00e5c4', spa
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', flex: 1, minWidth: '48%', minHeight: 130 },
-  cardWarn: { borderColor: colors.danger },
-  warnBar: { height: 3, backgroundColor: colors.danger },
+  warnBar: { height: 3 },
   content: { padding: 14, flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   icon: { fontSize: 16, marginRight: 6 },

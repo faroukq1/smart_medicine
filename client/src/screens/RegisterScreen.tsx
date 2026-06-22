@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView,
   StyleSheet, Text, TouchableOpacity, View,
@@ -8,6 +8,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthContext } from '../api/AuthProvider';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   registerStep1Schema, registerStep2PatientSchema, registerStep2DoctorSchema,
   RegisterStep1FormData, RegisterStep2PatientFormData, RegisterStep2DoctorFormData,
@@ -16,7 +17,6 @@ import AppInput from '../components/ui/AppInput';
 import AppButton from '../components/ui/AppButton';
 import AppSelect from '../components/ui/AppSelect';
 import Logo from '../components/Logo';
-import { colors } from '../constants/colors';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = StackNavigationProp<RootStackParamList, 'Register'>;
@@ -25,12 +25,15 @@ type Role = 'patient' | 'doctor';
 export default function RegisterScreen() {
   const navigation = useNavigation<Nav>();
   const { register } = useAuthContext();
+  const { colors } = useTheme();
   const [role, setRole] = useState<Role>('patient');
   const [step, setStep] = useState<1 | 2>(1);
   const [registerError, setRegisterError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [successName, setSuccessName] = useState('');
+
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const step1Form = useForm<RegisterStep1FormData>({
     resolver: zodResolver(registerStep1Schema),
@@ -198,7 +201,7 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 40 },
@@ -208,13 +211,13 @@ const styles = StyleSheet.create({
   roleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   roleBtnActive: { backgroundColor: colors.primary },
   roleBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.textMuted },
-  roleBtnTextActive: { color: colors.bg },
+  roleBtnTextActive: { color: '#fff' },
   stepIndicator: { marginBottom: 24 },
   stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   stepDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.textDim, alignItems: 'center', justifyContent: 'center' },
   stepDotActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   stepDotNum: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.textDim },
-  stepDotNumActive: { color: colors.bg },
+  stepDotNumActive: { color: '#fff' },
   stepLine: { width: 40, height: 2, backgroundColor: colors.textDim, marginHorizontal: 8 },
   stepLineActive: { backgroundColor: colors.primary },
   submitWrap: { marginTop: 8 },

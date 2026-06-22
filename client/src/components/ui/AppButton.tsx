@@ -1,6 +1,6 @@
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface AppButtonProps {
   label: string;
@@ -10,10 +10,12 @@ interface AppButtonProps {
 }
 
 export default function AppButton({ label, onPress, loading = false, variant = 'primary' }: AppButtonProps) {
+  const { colors } = useTheme();
+
   if (variant === 'ghost') {
     return (
-      <TouchableOpacity style={styles.ghostBtn} onPress={onPress} disabled={loading} activeOpacity={0.7}>
-        {loading ? <ActivityIndicator color={colors.primary} size="small" /> : <Text style={styles.ghostText}>{label}</Text>}
+      <TouchableOpacity style={[styles.ghostBtn, { borderColor: colors.primary }]} onPress={onPress} disabled={loading} activeOpacity={0.7}>
+        {loading ? <ActivityIndicator color={colors.primary} size="small" /> : <Text style={[styles.ghostText, { color: colors.primary }]}>{label}</Text>}
       </TouchableOpacity>
     );
   }
@@ -32,7 +34,7 @@ const styles = StyleSheet.create({
   primaryText: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: '#fff' },
   ghostBtn: {
     borderRadius: 10, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: colors.primary, backgroundColor: 'transparent',
+    borderWidth: 1, backgroundColor: 'transparent',
   },
-  ghostText: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: colors.primary },
+  ghostText: { fontFamily: 'Inter_600SemiBold', fontSize: 15 },
 });

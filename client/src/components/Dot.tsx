@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface DotProps { on: boolean; size?: number; }
 
 export default function Dot({ on, size = 10 }: DotProps) {
+  const { colors } = useTheme();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (!on) return;
@@ -21,17 +22,18 @@ export default function Dot({ on, size = 10 }: DotProps) {
       {on && (
         <Animated.View style={[styles.ring, {
           width: size, height: size, borderRadius: size / 2,
+          backgroundColor: colors.primary,
           transform: [{ scale: pulseAnim }],
           opacity: pulseAnim.interpolate({ inputRange: [1, 2.4], outputRange: [0.6, 0] }),
         }]} />
       )}
-      <View style={[styles.dot, { width: size, height: size, borderRadius: size / 2, backgroundColor: on ? '#00e5c4' : colors.textDim }]} />
+      <View style={[styles.dot, { width: size, height: size, borderRadius: size / 2, backgroundColor: on ? colors.primary : colors.textDim }]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center' },
-  ring: { position: 'absolute', backgroundColor: '#00e5c4' },
+  ring: { position: 'absolute' },
   dot: {},
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -15,11 +15,11 @@ import { useAuthContext } from "../api/AuthProvider";
 import * as api from "../api/api";
 import { API_BASE } from "../api/config";
 import { DEMO_PATIENT } from "../constants/demoData";
+import { useTheme } from "../contexts/ThemeContext";
 import HLogo from "../components/HLogo";
 import VCard from "../components/VCard";
 import PatchBar from "../components/PatchBar";
 import FallAlertModal from "../components/FallAlertModal";
-import { colors } from "../constants/colors";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = StackNavigationProp<RootStackParamList, "PatientDashboard">;
@@ -39,6 +39,7 @@ export default function PatientDashboardScreen() {
   const route = useRoute<Route>();
   const { user: routeUser } = route.params;
   const { user: authUser, logout } = useAuthContext();
+  const { colors, mode, toggleTheme } = useTheme();
   const user = routeUser || authUser;
   const [tab, setTab] = useState<Tab>("overview");
   const [vitalsData, setVitalsData] = useState<any[]>([]);
@@ -62,6 +63,8 @@ export default function PatientDashboardScreen() {
 
   const patientId = user?.patient?.id;
   const lastFallIdRef = useRef<string | null>(null);
+
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // SSE — real-time vitals + instant fall modal
   useEffect(() => {
@@ -454,11 +457,13 @@ export default function PatientDashboardScreen() {
 
           {tab === "profile" && (
             <View style={styles.profileCard}>
-              <Text style={styles.profileName}>
-                {user?.firstName
-                  ? `${user.firstName} ${user.lastName}`
-                  : user?.name || "—"}
-              </Text>
+              <View style={styles.profileHeader}>
+                <Text style={styles.profileName}>
+                  {user?.firstName
+                    ? `${user.firstName} ${user.lastName}`
+                    : user?.name || "—"}
+                </Text>
+              </View>
               <View style={styles.profileRow}>
                 <Text style={styles.profileLabel}>Date de naissance</Text>
                 <Text style={styles.profileValue}>
@@ -488,11 +493,23 @@ export default function PatientDashboardScreen() {
         </ScrollView>
       </Animated.View>
       <FallAlertModal visible={showFallModal} onDismiss={handleDismissFall} />
+      <TouchableOpacity
+        onPress={toggleTheme}
+        style={[
+          styles.floatingToggle,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.floatingToggleIcon}>
+          {mode === "dark" ? "☀️" : "🌙"}
+        </Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
@@ -605,12 +622,35 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 20,
   },
+  profileHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
   profileName: {
     fontFamily: "Exo2_800ExtraBold",
     fontSize: 20,
     color: colors.primary,
-    marginBottom: 20,
+    flex: 1,
   },
+  floatingToggle: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  floatingToggleIcon: { fontSize: 20 },
   profileRow: {
     flexDirection: "row",
     justifyContent: "space-between",
