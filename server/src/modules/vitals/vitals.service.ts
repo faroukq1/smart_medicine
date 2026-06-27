@@ -32,12 +32,9 @@ export async function ingestVital(data: IngestInput) {
   const patient = await prisma.patient.findUnique({ where: { id: patientId } });
   if (!patient) throw new Error('PATIENT_NOT_FOUND');
 
-  const device = await prisma.device.findUnique({ where: { patientId } });
-
   const vital = await prisma.vital.create({
     data: {
       patientId,
-      deviceId:    device?.id ?? null,
       glucose:     data.glucose,
       heartRate:   data.heartRate,
       temperature: data.temperature,
@@ -49,17 +46,14 @@ export async function ingestVital(data: IngestInput) {
     },
   });
 
-  if (device) {
-    await prisma.device.update({
-      where: { id: device.id },
-      data: {
-        connected:   true,
-        lastSeen:    new Date(),
-        batteryPct:  data.batteryPct ?? device.batteryPct,
-        firmwareVer: data.firmwareVer ?? device.firmwareVer,
-      },
-    });
-  }
+  // Mark patch as connected — each incoming vital resets the watchdog timer
+  await prisma.patient.update({
+    where: { id: patientId },
+    data: {
+      patchConnected: true,
+      lastVitalAt: new Date(),
+    },
+  });
 
   const alerts = await checkThresholds(patientId, vital);
 
@@ -80,6 +74,12 @@ export async function ingestVital(data: IngestInput) {
     type: 'vital',
     vital,
     alerts,
+  });
+
+  // Real-time patch status update to client
+  sseManager.broadcast(patientId, {
+    type: 'patch',
+    connected: true,
   });
 
   return { vital, alerts };

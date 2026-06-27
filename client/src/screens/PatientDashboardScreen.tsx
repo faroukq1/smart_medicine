@@ -93,8 +93,8 @@ export default function PatientDashboardScreen() {
             if (!line.startsWith("data: ")) continue;
             try {
               const msg = JSON.parse(line.slice(6));
-              if (msg.type === "device") {
-                setPatchConnected(msg.device?.connected ?? false);
+              if (msg.type === "patch") {
+                setPatchConnected(msg.connected ?? false);
                 continue;
               }
               if (msg.type !== "vital") continue;
@@ -127,12 +127,12 @@ export default function PatientDashboardScreen() {
     if (!patientId) return;
     const check = async () => {
       try {
-        const dev = await api.getPatientDevice(patientId);
-        setPatchConnected(dev?.connected ?? false);
+        const patient = await api.getPatientById(patientId);
+        setPatchConnected(patient?.patchConnected ?? false);
       } catch {}
     };
     check();
-    const interval = setInterval(check, 2000);
+    const interval = setInterval(check, 3000);
     return () => clearInterval(interval);
   }, [patientId]);
 

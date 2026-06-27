@@ -1,30 +1,30 @@
 import { prisma } from "../prisma/client";
 import { sseManager } from "../sse/sse.manager";
 
-const TIMEOUT_MS = 2000;
+const TIMEOUT_MS = 3000;
 
 export function startPatchWatchdog(): void {
   setInterval(async () => {
     const threshold = new Date(Date.now() - TIMEOUT_MS);
 
-    const staleDevices = await prisma.device.findMany({
+    const stalePatients = await prisma.patient.findMany({
       where: {
-        connected: true,
-        lastSeen: { lt: threshold },
+        patchConnected: true,
+        lastVitalAt: { lt: threshold },
       },
     });
 
-    for (const device of staleDevices) {
-      const updated = await prisma.device.update({
-        where: { id: device.id },
-        data: { connected: false },
+    for (const patient of stalePatients) {
+      await prisma.patient.update({
+        where: { id: patient.id },
+        data: { patchConnected: false },
       });
-      sseManager.broadcast(device.patientId, {
-        type: "device",
-        device: updated,
+      sseManager.broadcast(patient.id, {
+        type: "patch",
+        connected: false,
       });
       console.log(
-        `⚠️  Patch ${device.patchId} timed out — marked disconnected`,
+        `⚠️  Patient ${patient.id} patch timed out — marked disconnected`,
       );
     }
   }, TIMEOUT_MS);

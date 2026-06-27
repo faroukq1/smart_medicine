@@ -3,7 +3,6 @@
 const BASE_URL = "http://localhost:3000";
 const API_KEY = "esp32_shared_secret_key_here";
 const FIRMWARE_VER = "v1.0.0";
-<<<<<<< HEAD
 const PATIENT_EMAIL = "seraouialaeddine@gmail.com";
 const PATIENT_PASS = "ala123456";
 

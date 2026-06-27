@@ -3,11 +3,25 @@ title Full Stack Dev Launcher
 color 0A
 
 echo ==============================
-echo  Starting Full Stack Project
+echo   Updating Project...
+echo ==============================
+
+git pull
+
+if errorlevel 1 (
+    echo.
+    echo Git pull failed!
+    pause
+    exit /b
+)
+
+echo.
+echo ==============================
+echo   Starting Full Stack Project
 echo ==============================
 
 :: Start Backend Server
-start "SERVER" cmd /k "cd server && npm run dev"
+start "SERVER" cmd /k "cd server && npm run db:migrate && npm run dev"
 
 timeout /t 2 >nul
 
@@ -21,6 +35,6 @@ start "CLIENT" cmd /k "cd client && npx expo start --clear"
 
 echo.
 echo ==============================
-echo  All services are running!
+echo   All services are running!
 echo ==============================
 pause

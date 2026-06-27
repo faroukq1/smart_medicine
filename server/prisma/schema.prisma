@@ -33,6 +33,8 @@ model Patient {
   height    Float?
   condition String
   notes     String   @default("")
+  patchConnected Boolean @default(false)
+  lastVitalAt    DateTime?
 
   device    Device?
   vitals    Vital[]

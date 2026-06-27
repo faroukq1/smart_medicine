@@ -1,0 +1,360 @@
+// =============================================================================
+//  ESP32-C3 Super Mini — Medical Vitals Monitor (Real Sensors)
+//  I2C: SDA=4  SCL=5
+//  Sensors: MAX30205 @ 0x4C | MAX30102 @ 0x57 | LSM6DS3 @ 0x6B
+// =============================================================================
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  USER CONFIGURATION
+// ─────────────────────────────────────────────────────────────────────────────
+#define WIFI_SSID       "iPhone"
+#define WIFI_PASSWORD   "1234567802"
+
+#define SERVER_BASE_URL "https://trouble-anybody-barber.ngrok-free.dev/api"
+#define API_KEY         "esp32_shared_secret_key_here"
+#define LOGIN_EMAIL     "seraouialaeddine@gmail.com"
+#define LOGIN_PASSWORD  "ala123456"
+#define FIRMWARE_VER    "v1.0.0"
+
+#define WIFI_TIMEOUT_MS  15000
+#define HTTP_TIMEOUT_MS   8000
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  I2C / SENSOR ADDRESSES
+// ─────────────────────────────────────────────────────────────────────────────
+#define I2C_SDA         4
+#define I2C_SCL         5
+#define LSM6DS3_ADDR    0x6B
+#define MAX30205_ADDR   0x4C
+#define MAX30102_ADDR   0x57
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SpO2 / HR sampling
+// ─────────────────────────────────────────────────────────────────────────────
+#define SAMPLE_COUNT     100
+#define SAMPLE_DELAY_MS   10
+#define FINGER_THRESHOLD  20000
+
+// =============================================================================
+//  INCLUDES
+// =============================================================================
+#include <Arduino.h>
+#include <Wire.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <SparkFunLSM6DS3.h>
+#include <time.h>
+#include <math.h>
+
+// =============================================================================
+//  GLOBALS
+// =============================================================================
+LSM6DS3 imuSensor(I2C_MODE, LSM6DS3_ADDR);
+
+String g_patientId   = "";
+String g_accessToken = "";
+bool   g_ntpSynced   = false;
+int    g_readingNum  = 1;
+
+float g_glucose   = 120.0f;
+float g_systolic  = 115.0f;
+float g_diastolic =  75.0f;
+float g_battery   = 100.0f;
+
+uint32_t redBuf[SAMPLE_COUNT];
+uint32_t irBuf[SAMPLE_COUNT];
+
+// =============================================================================
+//  RAW SENSOR DRIVERS
+// =============================================================================
+void writeReg(uint8_t addr, uint8_t reg, uint8_t val) {
+  Wire.beginTransmission(addr);
+  Wire.write(reg);
+  Wire.write(val);
+  Wire.endTransmission();
+}
+
+void setupMax30102() {
+  writeReg(MAX30102_ADDR, 0x09, 0x40); delay(100);
+  writeReg(MAX30102_ADDR, 0x09, 0x03);
+  writeReg(MAX30102_ADDR, 0x0A, 0x27);
+  writeReg(MAX30102_ADDR, 0x0C, 0x24);
+  writeReg(MAX30102_ADDR, 0x0D, 0x24);
+  writeReg(MAX30102_ADDR, 0x04, 0x00);
+  writeReg(MAX30102_ADDR, 0x05, 0x00);
+  writeReg(MAX30102_ADDR, 0x06, 0x00);
+}
+
+void readMax30102(uint32_t &red, uint32_t &ir) {
+  Wire.beginTransmission(MAX30102_ADDR);
+  Wire.write(0x07);
+  if (Wire.endTransmission() != 0) { red = 0; ir = 0; return; }
+  Wire.requestFrom(MAX30102_ADDR, 6);
+  if (Wire.available() == 6) {
+    uint8_t r1 = Wire.read(), r2 = Wire.read(), r3 = Wire.read();
+    uint8_t i1 = Wire.read(), i2 = Wire.read(), i3 = Wire.read();
+    red = ((uint32_t)r1 << 16 | (uint32_t)r2 << 8 | r3) & 0x03FFFF;
+    ir  = ((uint32_t)i1 << 16 | (uint32_t)i2 << 8 | i3) & 0x03FFFF;
+  } else { red = 0; ir = 0; }
+}
+
+float readMAX30205() {
+  Wire.beginTransmission(MAX30205_ADDR);
+  Wire.write(0x00);
+  if (Wire.endTransmission() != 0) return NAN;
+  Wire.requestFrom(MAX30205_ADDR, (uint8_t)2);
+  if (Wire.available() == 2) {
+    int16_t raw = (Wire.read() << 8) | Wire.read();
+    float t = raw * 0.00390625f;
+    return (t >= 30.0f && t <= 43.0f) ? t : NAN;
+  }
+  return NAN;
+}
+
+// =============================================================================
+//  ALGORITHMS
+// =============================================================================
+void collectSamples() {
+  for (int i = 0; i < SAMPLE_COUNT; i++) {
+    readMax30102(redBuf[i], irBuf[i]);
+    delay(SAMPLE_DELAY_MS);
+  }
+}
+
+bool fingerPresent() {
+  return irBuf[SAMPLE_COUNT / 2] > FINGER_THRESHOLD;
+}
+
+int computeSpO2() {
+  if (!fingerPresent()) return 0;
+  double redDC = 0, irDC = 0;
+  for (int i = 0; i < SAMPLE_COUNT; i++) { redDC += redBuf[i]; irDC += irBuf[i]; }
+  redDC /= SAMPLE_COUNT; irDC /= SAMPLE_COUNT;
+  double redAC = 0, irAC = 0;
+  for (int i = 0; i < SAMPLE_COUNT; i++) {
+    redAC += fabs((double)redBuf[i] - redDC);
+    irAC  += fabs((double)irBuf[i]  - irDC);
+  }
+  redAC /= SAMPLE_COUNT; irAC /= SAMPLE_COUNT;
+  if (irDC < 1 || irAC < 1) return 0;
+  double R = (redAC / redDC) / (irAC / irDC);
+  double spo2 = -45.060 * R * R + 30.354 * R + 94.845;
+  return (int)constrain(spo2, 70, 100);
+}
+
+int computeHR() {
+  if (!fingerPresent()) return 0;
+  double irDC = 0;
+  for (int i = 0; i < SAMPLE_COUNT; i++) irDC += irBuf[i];
+  irDC /= SAMPLE_COUNT;
+  int crossings = 0;
+  bool below = ((double)irBuf[0] < irDC);
+  for (int i = 1; i < SAMPLE_COUNT; i++) {
+    bool nowBelow = ((double)irBuf[i] < irDC);
+    if (below && !nowBelow) crossings++;
+    below = nowBelow;
+  }
+  return crossings * 60;
+}
+
+bool detectFall(float ax, float ay, float az) {
+  return sqrt(ax*ax + ay*ay + az*az) > 1.5f;
+}
+
+void driftSimulated() {
+  auto randStep = [](float amp) {
+    return ((float)random(0, 10001) / 10000.0f - 0.5f) * 2.0f * amp;
+  };
+  g_glucose   = constrain(g_glucose   + randStep(5.0f), 60,  250);
+  g_systolic  = constrain(g_systolic  + randStep(2.0f), 90,  140);
+  g_diastolic = constrain(g_diastolic + randStep(2.0f), 60,   90);
+  g_battery  -= 0.01f;
+  if (g_battery < 0) g_battery = 0;
+}
+
+// =============================================================================
+//  WIFI
+// =============================================================================
+void connectWiFi() {
+  Serial.printf("\n[WiFi] Connecting to \"%s\" …", WIFI_SSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  unsigned long t = millis();
+  while (WiFi.status() != WL_CONNECTED) {
+    if (millis() - t > WIFI_TIMEOUT_MS) {
+      Serial.println("\n[WiFi] TIMEOUT — restart");
+      delay(3000);
+      ESP.restart();
+    }
+    delay(500); Serial.print(".");
+  }
+  Serial.printf("\n[WiFi] IP: %s\n", WiFi.localIP().toString().c_str());
+}
+
+void ensureWiFi() {
+  if (WiFi.status() != WL_CONNECTED) { WiFi.disconnect(); connectWiFi(); }
+}
+
+// =============================================================================
+//  NTP
+// =============================================================================
+void syncNTP() {
+  Serial.println("[NTP] Syncing …");
+  configTime(0, 0, "pool.ntp.org", "time.google.com");
+  struct tm ti; int tries = 0;
+  while (!getLocalTime(&ti) && tries++ < 20) { delay(500); Serial.print("."); }
+  g_ntpSynced = (tries < 20);
+  Serial.println(g_ntpSynced ? "\n[NTP] OK" : "\n[NTP] FAILED");
+}
+
+void buildTimestamp(char* buf, size_t len) {
+  struct tm ti;
+  if (g_ntpSynced && getLocalTime(&ti)) {
+    strftime(buf, len, "%Y-%m-%dT%H:%M:%S.000Z", &ti);
+  } else {
+    unsigned long s = millis() / 1000;
+    snprintf(buf, len, "1970-01-01T%02lu:%02lu:%02lu.000Z", s/3600, (s/60)%60, s%60);
+  }
+}
+
+// =============================================================================
+//  LOGIN
+// =============================================================================
+bool serverLogin() {
+  Serial.println("[Login] Authenticating …");
+  WiFiClientSecure c; c.setInsecure();
+  HTTPClient http;
+  http.begin(c, String(SERVER_BASE_URL) + "/auth/login");
+  http.addHeader("Content-Type", "application/json");
+  http.setTimeout(HTTP_TIMEOUT_MS);
+
+  String body = "{\"email\":\"" LOGIN_EMAIL "\",\"password\":\"" LOGIN_PASSWORD "\"}";
+  int code = http.POST(body);
+  Serial.printf("[Login] HTTP %d\n", code);
+  if (code != 200 && code != 201) { http.end(); return false; }
+
+  String payload = http.getString();
+  http.end();
+
+  StaticJsonDocument<4096> doc;
+  if (deserializeJson(doc, payload)) { Serial.println("[Login] JSON parse failed"); return false; }
+
+  const char* pid   = doc["user"]["patient"]["id"];
+  const char* token = doc["accessToken"];
+  if (!pid)   { Serial.println("[Login] patient.id missing");  return false; }
+  if (!token) { Serial.println("[Login] accessToken missing"); return false; }
+
+  g_patientId   = String(pid);
+  g_accessToken = String(token);
+  Serial.printf("[Login] OK — patientId=%s\n", g_patientId.c_str());
+  return true;
+}
+
+// =============================================================================
+//  SEND VITALS  (this also resets the server watchdog timer every call)
+// =============================================================================
+void sendVitals(float temp, int hr, int spo2, bool fall) {
+  ensureWiFi();
+  driftSimulated();
+
+  char ts[32];
+  buildTimestamp(ts, sizeof(ts));
+
+  StaticJsonDocument<512> doc;
+  doc["patientId"]    = g_patientId;
+  doc["glucose"]      = (int)g_glucose;
+  doc["heartRate"]    = hr;
+  doc["temperature"]  = (float)((int)(temp * 10 + 0.5f)) / 10.0f;
+  doc["oxygen"]       = spo2;
+  doc["systolic"]     = (int)g_systolic;
+  doc["diastolic"]    = (int)g_diastolic;
+  doc["batteryPct"]   = (int)g_battery;
+  doc["firmwareVer"]  = FIRMWARE_VER;
+  doc["recordedAt"]   = ts;
+  doc["fallDetected"] = fall;
+
+  String jsonBody;
+  serializeJson(doc, jsonBody);
+  Serial.println("[Send] " + jsonBody);
+
+  WiFiClientSecure c; c.setInsecure();
+  HTTPClient http;
+  http.begin(c, String(SERVER_BASE_URL) + "/vitals/ingest");
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("x-api-key", API_KEY);
+  http.setTimeout(HTTP_TIMEOUT_MS);
+
+  int code = http.POST(jsonBody);
+  String resp = http.getString();
+  http.end();
+
+  Serial.printf("[Vitals] #%03d HTTP %d | %s\n", g_readingNum++, code, resp.c_str());
+  if (code == 201)      Serial.println("[Vitals] OK");
+  else if (code == 401) { Serial.println("[Vitals] 401 — re-login"); serverLogin(); }
+  else if (code < 0)    Serial.printf("[Vitals] Error: %s\n", HTTPClient::errorToString(code).c_str());
+}
+
+// =============================================================================
+//  SETUP  — login → register → connect ONCE → start loop
+// =============================================================================
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  Serial.println("\n=== ESP32-C3 Medical Monitor ===");
+
+  randomSeed(analogRead(0));
+  Wire.begin(I2C_SDA, I2C_SCL);
+
+  if (imuSensor.begin() == 0) Serial.println("[Init] LSM6DS3 OK");
+  else                         Serial.println("[Init] LSM6DS3 FAILED");
+
+  Wire.beginTransmission(MAX30102_ADDR);
+  if (Wire.endTransmission() == 0) { setupMax30102(); Serial.println("[Init] MAX30102 OK"); }
+  else                               Serial.println("[Init] MAX30102 FAILED");
+
+  Wire.beginTransmission(MAX30205_ADDR);
+  Serial.println(Wire.endTransmission() == 0 ? "[Init] MAX30205 OK" : "[Init] MAX30205 FAILED");
+
+  connectWiFi();
+  syncNTP();
+
+  // Login (required to get patientId for vitals)
+  while (!serverLogin()) {
+    Serial.println("[Login] Retry in 5s …");
+    delay(5000);
+  }
+
+  Serial.println("\n=== Ready — streaming vitals (patch auto-connects via watchdog) ===\n");
+}
+
+// =============================================================================
+//  LOOP  — just collect and send, forever
+// =============================================================================
+void loop() {
+  Serial.println("──────────────────────────────────────");
+
+  // 1. Collect MAX30102 samples (~1 second)
+  collectSamples();
+  int spo2 = computeSpO2();
+  int hr   = computeHR();
+  Serial.printf("[MAX30102] HR: %d bpm  SpO2: %d%%  (finger: %s)\n",
+                hr, spo2, fingerPresent() ? "YES" : "NO");
+
+  // 2. Temperature
+  float temp = readMAX30205();
+  if (isnan(temp)) { temp = 36.6f; Serial.println("[MAX30205] Read failed — using 36.6"); }
+  else             Serial.printf("[MAX30205] Temp: %.2f °C\n", temp);
+
+  // 3. Accelerometer + fall detection
+  float ax = imuSensor.readFloatAccelX();
+  float ay = imuSensor.readFloatAccelY();
+  float az = imuSensor.readFloatAccelZ();
+  bool  fall = detectFall(ax, ay, az);
+  Serial.printf("[LSM6DS3]  X:%.2fg Y:%.2fg Z:%.2fg  Fall:%s\n",
+                ax, ay, az, fall ? "YES" : "no");
+
+  // 4. Send vitals — each POST resets the server watchdog timer
+  sendVitals(temp, hr, spo2, fall);
+}
